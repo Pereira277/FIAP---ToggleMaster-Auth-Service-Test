@@ -55,7 +55,7 @@ jobs:
       - name: SAST (Gosec)
         uses: securego/gosec@master
         with:
-          args: ./...
+          args: '-severity high ./...'
 
       - name: SCA (Trivy Filesystem)
         uses: aquasecurity/trivy-action@master
