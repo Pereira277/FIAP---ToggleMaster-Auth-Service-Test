@@ -20,7 +20,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.24.13'
 
       - name: Instalar Dependências
         run: go mod download
@@ -68,16 +68,16 @@ jobs:
           exit-code: '1'
           severity: 'CRITICAL'
 
-  # ESTÁGIO 3: Docker e Container Scan
+  # ESTÁGIO 3: Docker, Scan e Push
   docker-build-and-scan:
-    name: Docker Build & Image Scan
+    name: Docker Build, Scan & Push
     needs: security-and-lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout do código
         uses: actions/checkout@v4
 
-      - name: Build da Imagem Docker
+      - name: Build da Imagem Docker local
         run: docker build -t auth-service:${{ github.sha }} .
 
       - name: Container Scan (Trivy)
@@ -87,3 +87,23 @@ jobs:
           format: 'table'
           exit-code: '1'
           severity: 'CRITICAL'
+
+      # --- INTEGRAÇÃO COM DOCKER HUB ---
+      - name: Login no Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Push da Imagem Validada
+        env:
+          DOCKER_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          # 1. Renomeia a imagem local para o formato exigido pelo Docker Hub
+          docker tag auth-service:$IMAGE_TAG $DOCKER_USER/auth-service:$IMAGE_TAG
+          docker tag auth-service:$IMAGE_TAG $DOCKER_USER/auth-service:latest
+          
+          # 2. Envia as imagens para o repositório público
+          docker push $DOCKER_USER/auth-service:$IMAGE_TAG
+          docker push $DOCKER_USER/auth-service:latest
